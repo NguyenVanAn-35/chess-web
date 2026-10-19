@@ -1,0 +1,29 @@
+@model MajestyGambit.Web.Models.Auth.RegisterViewModel
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+<div class="mg-page" style="display:flex;align-items:center;justify-content:center;padding:1.5rem;">
+    <div class="mg-card">
+        <h1 class="mg-title" style="font-size:1.875rem;text-align:center;margin-bottom:2rem;">Đăng ký</h1>
+        <form asp-action="Register" method="post" style="display:flex;flex-direction:column;gap:1rem;">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="mg-error"></div>
+            <div>
+                <label class="mg-label" asp-for="Username">Tên đăng nhập</label>
+                <input asp-for="Username" class="mg-input" placeholder="3-50 ký tự" />
+            </div>
+            <div>
+                <label class="mg-label" asp-for="Email">Email</label>
+                <input asp-for="Email" class="mg-input" placeholder="example@email.com" />
+            </div>
+            <div>
+                <label class="mg-label" asp-for="Password">Mật khẩu</label>
+                <input asp-for="Password" class="mg-input" placeholder="Ít nhất 6 ký tự" />
+            </div>
+            <button type="submit" class="mg-btn" style="margin-top:.5rem;font-size:1.125rem;">Đăng ký</button>
+        </form>
+        <p class="mg-muted" style="text-align:center;margin:1.5rem 0 0;">
+            Đã có tài khoản? <a asp-action="Login">Đăng nhập</a>
+        </p>
+    </div>
+</div>

@@ -1,0 +1,97 @@
+@model MajestyGambit.Web.Entities.Room
+@{
+    ViewData["Title"] = $"Phòng {Model.Code}";
+    var me = ViewBag.CurrentUsername as string;
+    var myPlayer = Model.Players.FirstOrDefault(p => p.User.Username == me);
+    var opponent = Model.Players.FirstOrDefault(p => p.User.Username != me);
+    var iAmReady = myPlayer?.IsReady == true;
+    var canReady = Model.Players.Count == 2 && !iAmReady;
+}
+<div class="mg-page" style="display:flex;align-items:center;justify-content:center;padding:1.5rem;position:relative;">
+    <a asp-controller="Lobby" asp-action="Index" class="mg-back" style="position:absolute;top:1rem;left:1rem;">← Quay lại</a>
+
+    <div class="mg-card mg-card-lg">
+        <div style="text-align:center;margin-bottom:2rem;">
+            <p class="mg-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;margin:0 0 .25rem;">Mã phòng</p>
+            <h2 class="mg-title" style="font-size:2.25rem;letter-spacing:.2em;margin:0;">@Model.Code</h2>
+            <p class="mg-muted" style="font-size:.875rem;margin:.5rem 0 0;">
+                @Model.TimeControl · @(Model.TimeLimitSeconds / 60) phút
+            </p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:.75rem;margin-bottom:2rem;">
+            @{
+                var rows = new[] {
+                    new { Name = me ?? "?", Elo = myPlayer?.User.EloRating, IsMe = true, Ready = iAmReady },
+                    new { Name = opponent?.User.Username ?? "Đang chờ...", Elo = (int?)opponent?.User.EloRating, IsMe = false, Ready = opponent?.IsReady == true }
+                };
+            }
+            @foreach (var row in rows)
+            {
+                <div class="mg-player-row @(row.IsMe ? "me" : "")">
+                    <div style="display:flex;align-items:center;gap:.75rem;">
+                        <div class="mg-avatar @(row.IsMe ? "" : "gray")">@(row.Name?[0].ToString().ToUpper() ?? "?")</div>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:.5rem;">
+                                <p style="margin:0;font-weight:600;">@row.Name</p>
+                                @if (row.Elo != null)
+                                {
+                                    <span style="color:var(--mg-accent);font-size:.75rem;font-weight:700;">@row.Elo</span>
+                                }
+                            </div>
+                            @if (row.IsMe)
+                            {
+                                <p class="mg-muted" style="margin:0;font-size:.75rem;">Bạn</p>
+                            }
+                        </div>
+                    </div>
+                    <span class="mg-badge @(row.Name == "Đang chờ..." ? "wait" : row.Ready ? "ready" : "wait")">
+                        @(row.Name == "Đang chờ..." ? "—" : row.Ready ? "Sẵn sàng" : "Chưa sẵn sàng")
+                    </span>
+                </div>
+            }
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:.75rem;">
+            <button id="btn-ready" class="mg-btn" style="font-size:1.25rem;padding:1rem;" @(canReady ? "" : "disabled")>
+                @(iAmReady ? "✓ Đã sẵn sàng" : Model.Players.Count == 1 ? "Chờ đối thủ..." : "Sẵn sàng!")
+            </button>
+            <a asp-controller="Lobby" asp-action="Index" class="mg-btn-outline" style="text-align:center;text-decoration:none;">Rời phòng</a>
+        </div>
+
+        <div id="conn" style="margin-top:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.75rem;color:#6b7280;">
+            <span class="mg-dot off" id="conn-dot"></span>
+            <span id="conn-text">Đang kết nối...</span>
+        </div>
+        <p id="room-status" class="mg-muted" style="text-align:center;font-size:.75rem;margin:.5rem 0 0;"></p>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+  const code = '@Model.Code';
+  const iAmReady = @(iAmReady ? "true" : "false");
+  const connection = new signalR.HubConnectionBuilder().withUrl('/hubs/chess').withAutomaticReconnect().build();
+  const dot = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  const status = document.getElementById('room-status');
+
+  connection.on('RoomEvent', (ev) => {
+    status.textContent = ev.type + (ev.username ? ': ' + ev.username : '');
+    if (ev.type === 'game_start') window.location.href = '/Game/' + ev.gameId;
+    else if (ev.type === 'player_joined' || ev.type === 'player_ready') setTimeout(() => location.reload(), 350);
+  });
+
+  connection.start().then(() => {
+    dot.className = 'mg-dot ok'; text.textContent = 'Đã kết nối'; text.style.color = '#4ade80';
+    return connection.invoke('JoinRoomGroup', code);
+  }).catch(console.error);
+
+  document.getElementById('btn-ready').addEventListener('click', () => {
+    if (iAmReady) return;
+    connection.invoke('SetReady', code).catch(err => alert(err.toString()));
+  });
+})();
+</script>
+}

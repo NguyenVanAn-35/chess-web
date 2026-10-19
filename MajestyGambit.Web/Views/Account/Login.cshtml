@@ -1,0 +1,26 @@
+@model MajestyGambit.Web.Models.Auth.LoginViewModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+<div class="mg-page" style="display:flex;align-items:center;justify-content:center;padding:1.5rem;">
+    <div class="mg-card">
+        <h1 class="mg-title" style="font-size:1.875rem;text-align:center;margin-bottom:2rem;">Đăng nhập</h1>
+        <form asp-action="Login" method="post" style="display:flex;flex-direction:column;gap:1rem;">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+            <div asp-validation-summary="ModelOnly" class="mg-error"></div>
+            <div>
+                <label class="mg-label" asp-for="Username">Tên đăng nhập</label>
+                <input asp-for="Username" class="mg-input" placeholder="Nhập username" autocomplete="username" />
+            </div>
+            <div>
+                <label class="mg-label" asp-for="Password">Mật khẩu</label>
+                <input asp-for="Password" class="mg-input" placeholder="Nhập mật khẩu" autocomplete="current-password" />
+            </div>
+            <button type="submit" class="mg-btn" style="margin-top:.5rem;font-size:1.125rem;">Đăng nhập</button>
+        </form>
+        <p class="mg-muted" style="text-align:center;margin:1.5rem 0 0;">
+            Chưa có tài khoản? <a asp-action="Register">Đăng ký ngay</a>
+        </p>
+    </div>
+</div>

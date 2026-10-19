@@ -1,0 +1,163 @@
+@model MajestyGambit.Web.Models.Game.ChessGameState
+@{
+    ViewData["Title"] = $"Game #{Model.GameId}";
+    var me = ViewBag.CurrentUsername as string ?? "";
+    var myColor = me == Model.WhiteUsername ? "white" : me == Model.BlackUsername ? "black" : "";
+    var opponentName = myColor == "white" ? Model.BlackUsername : Model.WhiteUsername;
+    var opponentRating = myColor == "white" ? Model.BlackRating : Model.WhiteRating;
+    var myRating = myColor == "white" ? Model.WhiteRating : Model.BlackRating;
+}
+<div class="mg-page-game" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.25rem;padding:1rem;position:relative;">
+    <a asp-controller="Lobby" asp-action="Index" class="mg-back" style="position:absolute;top:1rem;left:1rem;z-index:3;">← Quay lại</a>
+
+    <div style="display:flex;flex-direction:column;gap:.75rem;margin-top:3rem;">
+        <div class="mg-clock-bar" id="bar-opp">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div class="mg-avatar gray">@(opponentName.Length > 0 ? char.ToUpper(opponentName[0]).ToString() : "?")</div>
+                <div>
+                    <div style="display:flex;align-items:center;gap:.5rem;">
+                        <p style="margin:0;font-weight:600;font-size:.875rem;">@opponentName</p>
+                        <span style="color:var(--mg-accent);font-size:.75rem;font-weight:700;">(@opponentRating)</span>
+                    </div>
+                    <p class="mg-muted" style="margin:0;font-size:.75rem;">@(myColor == "white" ? "Đen" : "Trắng")</p>
+                </div>
+            </div>
+            <div class="mg-clock" id="clock-opp">--:--</div>
+        </div>
+
+        <div id="board" class="chess-board"
+             data-fen="@Model.Fen"
+             data-me="@me"
+             data-mycolor="@myColor"
+             data-white="@Model.WhiteUsername"
+             data-black="@Model.BlackUsername"></div>
+
+        <div class="mg-clock-bar" id="bar-me">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div class="mg-avatar">@(me.Length > 0 ? char.ToUpper(me[0]).ToString() : "?")</div>
+                <div>
+                    <div style="display:flex;align-items:center;gap:.5rem;">
+                        <p style="margin:0;font-weight:600;font-size:.875rem;">@me</p>
+                        <span style="color:var(--mg-accent);font-size:.75rem;font-weight:700;">(@myRating)</span>
+                    </div>
+                    <p style="margin:0;font-size:.75rem;color:var(--mg-accent);" id="turn-hint">@(myColor == "white" ? "Trắng" : "Đen")</p>
+                </div>
+            </div>
+            <div class="mg-clock" id="clock-me">--:--</div>
+        </div>
+        <p id="result" style="text-align:center;font-weight:700;color:var(--mg-accent);min-height:1.5rem;">@Model.Result</p>
+    </div>
+
+    <aside class="mg-aside">
+        <div class="mg-panel-box" style="flex:1;min-height:12rem;">
+            <div class="mg-panel-head">Online Match</div>
+            <div style="padding:.75rem;max-height:16rem;overflow:auto;">
+                <ol id="move-history" style="margin:0;padding-left:1.25rem;font-size:.875rem;color:#d1d5db;">
+                    @foreach (var m in Model.MoveHistory) { <li>@m</li> }
+                </ol>
+            </div>
+        </div>
+
+        <div class="mg-panel-box">
+            <div class="mg-panel-head"><span class="mg-dot ok" style="animation:mgspin 2s linear infinite;"></span> Chat</div>
+            <div id="chat" class="mg-chat-box">
+                <p class="mg-muted" style="font-size:.75rem;text-align:center;margin:.75rem 0;">Chưa có tin nhắn nào</p>
+            </div>
+            <div style="display:flex;gap:.5rem;padding:.5rem;border-top:1px solid rgba(55,65,81,.6);">
+                <input id="chat-input" class="mg-input" maxlength="200" placeholder="Nhắn..." style="padding:.5rem .75rem;" />
+                <button id="chat-send" class="mg-btn" style="width:auto;padding:.5rem 1rem;box-shadow:none;">Gửi</button>
+            </div>
+        </div>
+
+        <button id="btn-resign" class="mg-btn-outline" style="border-color:rgba(248,113,113,.35);color:#f87171;">Đầu hàng</button>
+    </aside>
+</div>
+
+@section Scripts {
+<script src="~/js/chess-board.js" asp-append-version="true"></script>
+<script>
+(() => {
+  const gameId = @Model.GameId;
+  const boardEl = document.getElementById('board');
+  let fen = boardEl.dataset.fen;
+  let selected = null;
+  const me = boardEl.dataset.me;
+  const myColor = boardEl.dataset.mycolor;
+  let whiteMs = @Model.WhiteTimeMs;
+  let blackMs = @Model.BlackTimeMs;
+  let turn = '@Model.CurrentTurn';
+  let result = '@Model.Result';
+  const myChat = [];
+
+  function fmt(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+  }
+  function paintClocks() {
+    const myMs = myColor === 'white' ? whiteMs : blackMs;
+    const oppMs = myColor === 'white' ? blackMs : whiteMs;
+    document.getElementById('clock-me').textContent = fmt(myMs);
+    document.getElementById('clock-opp').textContent = fmt(oppMs);
+    const myTurn = turn === myColor && !result;
+    document.getElementById('bar-me').classList.toggle('active', myTurn);
+    document.getElementById('bar-opp').classList.toggle('active', !myTurn && !result);
+    document.getElementById('clock-me').classList.toggle('live', myTurn);
+    document.getElementById('clock-opp').classList.toggle('live', !myTurn && !result);
+    document.getElementById('turn-hint').textContent =
+      (myColor === 'white' ? 'Trắng' : 'Đen') + ' · ' + (myTurn ? 'Lượt của bạn' : 'Đang chờ...');
+  }
+  paintClocks();
+  setInterval(() => {
+    if (result) return;
+    if (turn === 'white') whiteMs -= 1000; else blackMs -= 1000;
+    paintClocks();
+  }, 1000);
+
+  function render() { MajestyBoard.render(boardEl, fen, selected, myColor === 'black'); }
+  render();
+
+  const connection = new signalR.HubConnectionBuilder().withUrl('/hubs/chess').withAutomaticReconnect().build();
+  connection.on('GameState', (st) => {
+    fen = st.fen; selected = null; turn = st.currentTurn;
+    whiteMs = st.whiteTimeMs; blackMs = st.blackTimeMs; result = st.result || '';
+    document.getElementById('result').textContent = result
+      ? (result === 'draw' ? 'Hòa!' : ((result === 'white_win') === (myColor === 'white') ? 'Bạn thắng! 🎉' : 'Bạn thua!'))
+      : '';
+    document.getElementById('move-history').innerHTML = (st.moveHistory || []).map(x => `<li>${x}</li>`).join('');
+    paintClocks(); render();
+  });
+  connection.on('Chat', (msg) => {
+    const box = document.getElementById('chat');
+    if (box.querySelector('.mg-muted')) box.innerHTML = '';
+    const isMe = msg.username === me;
+    box.innerHTML += `<div class="mg-chat-bubble ${isMe ? 'me' : 'them'}"><strong style="opacity:.7">${msg.username}:</strong> ${msg.message}</div>`;
+    box.scrollTop = box.scrollHeight;
+  });
+  connection.on('Error', (e) => alert(e.error || 'Error'));
+  connection.start().then(() => connection.invoke('JoinGameGroup', gameId));
+
+  boardEl.addEventListener('click', (ev) => {
+    const sq = ev.target.closest('.sq');
+    if (!sq || !myColor || result) return;
+    if (myColor !== turn) return;
+    const name = sq.dataset.sq;
+    if (!selected) { selected = name; render(); return; }
+    if (selected === name) { selected = null; render(); return; }
+    connection.invoke('SendMove', gameId, selected, name, null);
+    selected = null;
+  });
+
+  document.getElementById('btn-resign').addEventListener('click', () => {
+    if (confirm('Xác nhận đầu hàng? (cần ≥ 10 nước)'))
+      connection.invoke('Resign', gameId);
+  });
+  document.getElementById('chat-send').addEventListener('click', () => {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    connection.invoke('SendChat', gameId, text);
+    input.value = '';
+  });
+})();
+</script>
+}

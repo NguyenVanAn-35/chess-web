@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Chơi nội bộ";
+}
+<div class="mg-page-game" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1rem;position:relative;">
+    <a asp-controller="Home" asp-action="Index" class="mg-back" style="position:absolute;top:1rem;left:1rem;">← Quay lại</a>
+    <h1 class="mg-title" style="margin:3rem 0 0;font-size:1.75rem;">Chơi nội bộ (1 máy)</h1>
+    <p class="mg-muted" style="margin:0;">Hai người trên cùng máy — không cần đăng nhập.</p>
+    <div id="board" class="chess-board" data-fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"></div>
+    <p style="margin:0;">Lượt: <span id="turn" style="color:var(--mg-accent);font-weight:700;">white</span></p>
+    <button id="reset" class="mg-btn" style="width:auto;padding:.6rem 1.5rem;">Reset</button>
+</div>
+
+@section Scripts {
+<script src="~/js/chess-board.js" asp-append-version="true"></script>
+<script>
+(() => {
+  const boardEl = document.getElementById('board');
+  let fen = boardEl.dataset.fen;
+  let selected = null;
+  function side() { return fen.split(' ')[1] === 'w' ? 'white' : 'black'; }
+  function render() {
+    MajestyBoard.render(boardEl, fen, selected, false);
+    document.getElementById('turn').textContent = side();
+  }
+  render();
+  boardEl.addEventListener('click', (ev) => {
+    const sq = ev.target.closest('.sq');
+    if (!sq) return;
+    const name = sq.dataset.sq;
+    if (!selected) { selected = name; render(); return; }
+    if (selected === name) { selected = null; render(); return; }
+    const map = MajestyBoard.fenToMap(fen);
+    const piece = map[selected];
+    if (!piece) { selected = null; render(); return; }
+    map[name] = piece; delete map[selected];
+    fen = MajestyBoard.mapToFen(map, side() === 'white' ? 'b' : 'w');
+    selected = null; render();
+  });
+  document.getElementById('reset').onclick = () => { fen = boardEl.dataset.fen; selected = null; render(); };
+})();
+</script>
+}

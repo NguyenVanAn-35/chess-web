@@ -1,0 +1,174 @@
+@model MajestyGambit.Web.Models.Lobby.LobbyViewModel
+@{
+    ViewData["Title"] = "Lobby";
+}
+<div class="mg-page" style="display:flex;flex-direction:column;position:relative;">
+    <a asp-controller="Home" asp-action="Index" class="mg-back" style="position:absolute;top:5rem;left:1rem;z-index:2;">← Quay lại</a>
+
+    <div class="mg-header">
+        <h1>Majesty Gambit</h1>
+        <div class="mg-header-actions">
+            <span>♟ <strong style="color:#fff;">@Model.Username</strong> <strong style="color:var(--mg-accent);margin-left:.5rem;">@Model.EloRating</strong></span>
+            <a asp-controller="History" asp-action="Index">Lịch sử</a>
+            <form asp-controller="Account" asp-action="Logout" method="post" style="margin:0;">
+                @Html.AntiForgeryToken()
+                <button type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </div>
+
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:1.5rem;">
+        <div class="mg-card">
+            <div id="searching-view" style="display:none;flex-direction:column;align-items:center;gap:1.5rem;padding:1rem 0;">
+                <div style="position:relative;width:6rem;height:6rem;">
+                    <div class="mg-spin" style="position:absolute;inset:0;"></div>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.25rem;">♟</div>
+                </div>
+                <div style="text-align:center;">
+                    <p style="font-weight:700;font-size:1.125rem;margin:0;">Đang tìm đối thủ...</p>
+                    <p id="search-label" class="mg-muted" style="font-size:.875rem;margin:.35rem 0 0;"></p>
+                </div>
+                <button type="button" id="btn-leave-queue" class="mg-btn-outline" style="width:auto;padding:.5rem 1.5rem;">Hủy tìm kiếm</button>
+            </div>
+
+            <div id="lobby-main">
+                <div class="mg-tabs">
+                    <button type="button" class="mg-tab active" data-tab="find">Tìm trận</button>
+                    <button type="button" class="mg-tab" data-tab="private">Phòng riêng</button>
+                </div>
+
+                <div id="tab-find" style="display:flex;flex-direction:column;gap:1rem;">
+                    <p class="mg-muted" style="margin:0;font-size:.875rem;font-weight:500;color:#d1d5db;">Chọn thời gian:</p>
+                    <div class="mg-grid-2" id="tc-find"></div>
+                    <p id="queue-error" class="mg-error" style="display:none;"></p>
+                    <button type="button" id="btn-queue" class="mg-btn" style="font-size:1.125rem;">Tìm trận</button>
+                </div>
+
+                <div id="tab-private" style="display:none;flex-direction:column;gap:1rem;">
+                    <div class="mg-subtabs">
+                        <button type="button" class="mg-subtab active" data-ptab="create">Tạo phòng</button>
+                        <button type="button" class="mg-subtab" data-ptab="join">Vào phòng</button>
+                    </div>
+
+                    <div id="ptab-create" style="display:flex;flex-direction:column;gap:1rem;">
+                        <p style="margin:0;font-size:.875rem;font-weight:500;color:#d1d5db;">Chọn thời gian:</p>
+                        <div class="mg-grid-2" id="tc-create"></div>
+                        <div>
+                            <p style="margin:0 0 .5rem;font-size:.875rem;font-weight:500;color:#d1d5db;">Màu cờ:</p>
+                            <div class="mg-grid-3" id="color-opts">
+                                <button type="button" class="mg-choice" data-color="white"><span style="font-size:1.5rem;">♔</span><br/>Trắng</button>
+                                <button type="button" class="mg-choice active" data-color="random"><span style="font-size:1.5rem;">⚄</span><br/>Ngẫu nhiên</button>
+                                <button type="button" class="mg-choice" data-color="black"><span style="font-size:1.5rem;">♚</span><br/>Đen</button>
+                            </div>
+                        </div>
+                        <form asp-action="CreateRoom" method="post" id="form-create">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="TimeControl" id="create-tc" value="blitz" />
+                            <input type="hidden" name="TimeLimitSeconds" id="create-sec" value="300" />
+                            <input type="hidden" name="ColorPreference" id="create-color" value="random" />
+                            <button type="submit" class="mg-btn" style="font-size:1.125rem;">Tạo phòng</button>
+                        </form>
+                    </div>
+
+                    <form asp-action="JoinRoom" method="post" id="ptab-join" style="display:none;flex-direction:column;gap:1rem;">
+                        @Html.AntiForgeryToken()
+                        <div>
+                            <label class="mg-label">Mã phòng</label>
+                            <input name="joinCode" id="join-code" class="mg-input mg-input-code" maxlength="6" placeholder="XXXXXX" required />
+                        </div>
+                        <button type="submit" class="mg-btn" style="font-size:1.125rem;" id="btn-join" disabled>Vào phòng</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+  const TIME_CONTROLS = [
+    { label: 'Bullet 1+0', value: 'bullet', seconds: 60 },
+    { label: 'Blitz 3+0', value: 'blitz', seconds: 180 },
+    { label: 'Blitz 5+0', value: 'blitz', seconds: 300 },
+    { label: 'Rapid 10+0', value: 'rapid', seconds: 600 },
+  ];
+  let selected = 2;
+  let color = 'random';
+
+  function paintTc(containerId) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = TIME_CONTROLS.map((tc, i) =>
+      `<button type="button" class="mg-choice${i===selected?' active':''}" data-i="${i}">${tc.label}</button>`
+    ).join('');
+    el.querySelectorAll('.mg-choice').forEach(btn => btn.addEventListener('click', () => {
+      selected = +btn.dataset.i;
+      paintTc('tc-find'); paintTc('tc-create');
+      syncCreateHidden();
+    }));
+  }
+  function syncCreateHidden() {
+    const tc = TIME_CONTROLS[selected];
+    document.getElementById('create-tc').value = tc.value;
+    document.getElementById('create-sec').value = tc.seconds;
+    document.getElementById('create-color').value = color;
+  }
+  paintTc('tc-find'); paintTc('tc-create'); syncCreateHidden();
+
+  document.querySelectorAll('.mg-tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.mg-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-find').style.display = tab === 'find' ? 'flex' : 'none';
+    document.getElementById('tab-private').style.display = tab === 'private' ? 'flex' : 'none';
+  }));
+
+  document.querySelectorAll('.mg-subtab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.mg-subtab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const t = btn.dataset.ptab;
+    document.getElementById('ptab-create').style.display = t === 'create' ? 'flex' : 'none';
+    document.getElementById('ptab-join').style.display = t === 'join' ? 'flex' : 'none';
+  }));
+
+  document.querySelectorAll('#color-opts .mg-choice').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#color-opts .mg-choice').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    color = btn.dataset.color;
+    syncCreateHidden();
+  }));
+
+  const joinCode = document.getElementById('join-code');
+  joinCode.addEventListener('input', () => {
+    joinCode.value = joinCode.value.toUpperCase();
+    document.getElementById('btn-join').disabled = joinCode.value.length !== 6;
+  });
+
+  const connection = new signalR.HubConnectionBuilder().withUrl('/hubs/chess').withAutomaticReconnect().build();
+  connection.on('MatchFound', (msg) => { window.location.href = '/Game/' + msg.gameId; });
+  connection.start().catch(console.error);
+
+  document.getElementById('btn-queue').addEventListener('click', async () => {
+    const tc = TIME_CONTROLS[selected];
+    const fd = new FormData();
+    fd.append('timeControl', tc.value);
+    fd.append('timeLimitSeconds', tc.seconds);
+    const res = await fetch('/Lobby/Queue', { method: 'POST', body: fd, credentials: 'same-origin' });
+    if (!res.ok) {
+      document.getElementById('queue-error').style.display = 'block';
+      document.getElementById('queue-error').textContent = 'Không thể tìm trận';
+      return;
+    }
+    document.getElementById('lobby-main').style.display = 'none';
+    document.getElementById('searching-view').style.display = 'flex';
+    document.getElementById('search-label').textContent = tc.label;
+  });
+
+  document.getElementById('btn-leave-queue').addEventListener('click', async () => {
+    await fetch('/Lobby/LeaveQueue', { method: 'POST', credentials: 'same-origin' });
+    document.getElementById('lobby-main').style.display = 'block';
+    document.getElementById('searching-view').style.display = 'none';
+  });
+})();
+</script>
+}

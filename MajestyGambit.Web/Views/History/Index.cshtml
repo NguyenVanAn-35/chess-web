@@ -1,0 +1,100 @@
+@model List<MajestyGambit.Web.Services.HistoryItem>
+@{
+    ViewData["Title"] = "Lịch sử";
+    var page = (int)(ViewBag.Page ?? 0);
+    var username = ViewBag.Username as string ?? "";
+    var elo = ViewBag.Elo as int? ?? 0;
+    string Outcome(HistoryItem g)
+    {
+        if (g.Result == "draw") return "draw";
+        var iWon = (g.Result == "white_win" && g.MyColor == "white")
+                || (g.Result == "black_win" && g.MyColor == "black");
+        return iWon ? "win" : "loss";
+    }
+    string Label(string o) => o == "win" ? "Thắng" : o == "loss" ? "Thua" : "Hòa";
+    var endLabels = new Dictionary<string, string> {
+        ["checkmate"] = "Chiếu hết", ["resign"] = "Đầu hàng", ["timeout"] = "Hết giờ",
+        ["stalemate"] = "Hòa - Pat", ["agreement"] = "Hòa thỏa thuận"
+    };
+}
+<div class="mg-page-solid" style="display:flex;flex-direction:column;">
+    <div class="mg-header" style="background:var(--mg-panel);">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+            <a asp-controller="Lobby" asp-action="Index" class="mg-back" style="position:static;box-shadow:none;background:var(--mg-input);">← Lobby</a>
+            <h1 style="color:#fff;font-size:1.25rem;">Lịch sử trận đấu</h1>
+        </div>
+        <div class="mg-header-actions">
+            <span style="color:#d1d5db;font-weight:600;">@username</span>
+            <span style="background:rgba(177,167,252,.2);color:var(--mg-accent);font-weight:700;padding:.15rem .65rem;border-radius:999px;font-size:.75rem;">@elo điểm</span>
+        </div>
+    </div>
+
+    <div style="flex:1;padding:1rem;max-width:42rem;width:100%;margin:0 auto;">
+        @if (Model.Count == 0)
+        {
+            <div style="text-align:center;color:#9ca3af;margin-top:5rem;">
+                <p style="font-size:3rem;margin:0 0 1rem;">♟</p>
+                <p style="font-size:1.125rem;font-weight:600;color:#fff;margin:0;">Chưa có trận đấu nào</p>
+                <p style="font-size:.875rem;margin:.35rem 0 0;">Hãy bắt đầu tìm trận để xây dựng lịch sử!</p>
+                <a asp-controller="Lobby" asp-action="Index" class="mg-btn" style="width:auto;display:inline-flex;margin-top:1.5rem;padding:.65rem 1.5rem;">Tìm trận ngay</a>
+            </div>
+        }
+        else
+        {
+            <div style="display:flex;flex-direction:column;gap:.5rem;">
+                @foreach (var g in Model)
+                {
+                    var o = Outcome(g);
+                    <div class="mg-history-item @o">
+                        <div class="mg-history-result @o">@Label(o)</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                                <div class="mg-avatar gray" style="width:1.5rem;height:1.5rem;font-size:.7rem;">@char.ToUpper(g.OpponentUsername[0])</div>
+                                <span style="font-weight:600;font-size:.875rem;">@g.OpponentUsername</span>
+                                <span class="mg-muted" style="font-size:.75rem;">@(g.MyColor == "white" ? "♔" : "♚")</span>
+                                @if (g.IsMatchmaking)
+                                {
+                                    <span style="font-size:.65rem;background:rgba(177,167,252,.15);color:var(--mg-accent);border:1px solid rgba(177,167,252,.3);padding:.1rem .4rem;border-radius:999px;font-weight:700;">RANKED</span>
+                                }
+                                else
+                                {
+                                    <span style="font-size:.65rem;background:rgba(55,65,81,.5);color:#6b7280;border:1px solid rgba(75,85,99,.3);padding:.1rem .4rem;border-radius:999px;">Phòng riêng</span>
+                                }
+                            </div>
+                            <div class="mg-muted" style="font-size:.75rem;margin-top:.25rem;">
+                                @g.TimeControl · @(g.TimeLimitSeconds < 60 ? $"{g.TimeLimitSeconds}s" : $"{g.TimeLimitSeconds / 60} phút")
+                                @if (!string.IsNullOrEmpty(g.EndReason))
+                                {
+                                    <span>· @(endLabels.GetValueOrDefault(g.EndReason!, g.EndReason))</span>
+                                }
+                                · @g.PlayedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </div>
+                        </div>
+                        <div style="width:3rem;text-align:right;flex-shrink:0;">
+                            @if (g.IsMatchmaking && g.EloChange != null)
+                            {
+                                <span style="font-weight:700;color:@(g.EloChange >= 0 ? "#4ade80" : "#f87171");">
+                                    @(g.EloChange >= 0 ? $"+{g.EloChange}" : g.EloChange.ToString())
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="mg-muted" style="font-size:.75rem;">—</span>
+                            }
+                        </div>
+                    </div>
+                }
+                <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+                    @if (page > 0)
+                    {
+                        <a class="mg-btn-outline" asp-action="Index" asp-route-page="@(page - 1)">Trước</a>
+                    }
+                    @if (Model.Count >= 20)
+                    {
+                        <a class="mg-btn-outline" asp-action="Index" asp-route-page="@(page + 1)">Xem thêm</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

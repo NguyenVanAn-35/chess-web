@@ -1,0 +1,70 @@
+﻿@using MajestyGambit.Web.Entities
+@{
+    ViewData["Title"] = "Home";
+    var user = ViewBag.CurrentUser as User;
+}
+<div class="mg-page" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.25rem;gap:2.5rem;">
+    <div style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:1.5rem;max-width:36rem;width:100%;">
+        <h1 class="mg-title" style="font-size:clamp(2.25rem,6vw,3.75rem);line-height:1.15;">
+            Majesty Gambit <br /><span>Online</span>
+        </h1>
+        <p class="mg-muted" style="font-size:1.125rem;margin:0;">
+            Thử thách kỹ năng của bạn với mọi người trên khắp thế giới hoặc luyện tập với máy tính.
+        </p>
+
+        @if (user != null)
+        {
+            <div style="display:flex;align-items:center;gap:.75rem;background:rgba(42,45,69,.8);border-radius:.75rem;padding:.5rem 1rem;">
+                <div class="mg-avatar">@char.ToUpper(user.Username[0])</div>
+                <span style="font-weight:600;">@user.Username</span>
+                <span style="color:var(--mg-accent);">·</span>
+                <span style="color:var(--mg-accent);font-weight:600;">@user.EloRating</span>
+                <form asp-controller="Account" asp-action="Logout" method="post" style="margin:0 0 0 .5rem;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" style="background:none;border:none;color:#6b7280;font-size:.75rem;cursor:pointer;">Đăng xuất</button>
+                </form>
+            </div>
+        }
+
+        <div style="width:100%;display:flex;flex-direction:column;gap:1rem;margin-top:1rem;">
+            <a asp-controller="Chess" asp-action="Local" class="mg-btn mg-btn-lg">Chơi nội bộ (1 máy)</a>
+            <div class="mg-grid-2">
+                <button class="mg-btn" style="opacity:.5;" disabled>Chơi với Máy</button>
+                @if (user != null)
+                {
+                    <a asp-controller="Lobby" asp-action="Index" class="mg-btn">ONLINE</a>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login" class="mg-btn">ONLINE</a>
+                }
+            </div>
+
+            @if (user == null)
+            {
+                <div class="mg-grid-2">
+                    <a asp-controller="Account" asp-action="Login" class="mg-btn-ghost">Đăng nhập</a>
+                    <a asp-controller="Account" asp-action="Register" class="mg-btn-ghost">Đăng ký</a>
+                </div>
+            }
+            else if (ViewBag.ActiveGameId != null)
+            {
+                <a asp-controller="Game" asp-action="Play" asp-route-gameId="@ViewBag.ActiveGameId" class="mg-btn-ghost">Tiếp tục ván đang chơi</a>
+            }
+
+            <button type="button" class="mg-btn mg-btn-lg" id="btn-guide" style="font-size:1.35rem;padding:.85rem;">Hướng dẫn</button>
+        </div>
+
+        <div style="padding-top:2rem;border-top:1px solid #3f3f46;width:100%;">
+            <p class="mg-muted" style="font-size:.875rem;margin:0;">Đã có 1,234 người đang thi đấu trực tuyến</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('btn-guide')?.addEventListener('click', () => {
+  alert('Cách chơi:\n1. Đăng ký / Đăng nhập\n2. Vào Lobby → Tìm trận hoặc tạo phòng riêng\n3. Ready → đánh cờ realtime\n4. Xem lịch sử sau trận');
+});
+</script>
+}
